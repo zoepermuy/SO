@@ -17,6 +17,7 @@ typedef struct {
     int tipo;
     key_t clave;
     char * nombre;
+    int df;
 } tMem;
 
 

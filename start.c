@@ -706,7 +706,9 @@ void Cmd_allocate(char *arg[]) {
     size_t tam;
     key_t clave;
     void *mem, *dir;
-    int id;
+    int id, shmid, df, proteccion;
+    struct shmid_ds datos;
+    struct stat dt;
     
     if (arg[0] == NULL) {
         listarMemoria();
@@ -723,7 +725,7 @@ void Cmd_allocate(char *arg[]) {
                 perror("malloc\n");
                 return;
             } else {
-                int id = buscarHuecoMemoria();
+                id = buscarHuecoMemoria();
                 if (id == -1) {
                     free(mem);
                     return;
@@ -743,42 +745,117 @@ void Cmd_allocate(char *arg[]) {
             clave = atoi(arg[1]);
             tam = atoi(arg[2]);
 
-            id =shmget(clave, tam, IPC_CREAT);
-            if (id == -1) {
-                perror("");
+            shmid =shmget(clave, tam, IPC_CREAT);
+            if (shmid == -1) {
+                perror("shmget");
                 return;
             } else {
-                dir = shmat(id, NULL, 0);
-                if (dir == NULL) {
+                dir = shmat(shmid, NULL, 0);
+                if (dir == (void *) -1) {
+                    perror("shmat");
                     return;
                 }
                 int pos = buscarHuecoMemoria();
                 if (pos == -1) {
+                    shmdt(dir);
                     return;
                 }
-                registrarMemoria(id, dir, tam, 2, clave, NULL);
+                registrarMemoria(pos, dir, tam, 3, clave, NULL);
                 printf("Asignados %zu bytes en %p\n", tam, dir);
             }
         }
 
     } else if (!(strcmp(arg[0], "-shared"))){
         if (arg[1] == NULL) {
-            perror("******Lista de bloques asignados shared para el proceso 7744");
-        } else {}
+            listarMemoria();
+        } else {
+            clave = atoi(arg[1]);
 
-    } else if (!(strcmp(arg[0], "-createshared"))){
-        if (arg[1] == NULL) {
-            perror("******Lista de bloques asignados createshared para el proceso 7744");
-        } else {}
+            shmid = shmget(clave, 0, 0); 
+            if (shmid == -1) {
+                printf("Imposible asignar memoria compartida clave %d", clave);
+                perror("");
+                return;
+            } else {
+                if (shmctl(shmid, IPC_STAT, &datos) == -1){ //tamaño de la memoria compartida es valido
+                    perror("shmctl");
+                    return;
+                }
+                tam = datos.shm_segsz; //tamaño se guarda en shm_segsz de la estructura
+                dir = shmat(shmid, NULL, 0);
+                if (dir == (void *) -1) {
+                    perror("shmat");
+                    return;
+                }
+                int pos = buscarHuecoMemoria();
+                if (pos == -1) {
+                    shmdt(dir);
+                    return;
+                }
+                registrarMemoria(pos, dir, tam, 2, clave, NULL);
+                printf("Memoria compartida de clave %d en %p\n", clave, dir);
+            }
+        } 
 
     } else if (!(strcmp(arg[0], "-mmap"))){
         if (arg[1] == NULL) {
-            perror("******Lista de bloques asignados mmap para el proceso 7744");
-        } else {}
+            listarMemoria();
+        } else  if (arg[2] == NULL) {
+            listarMemoria();
+        } else {
+            if (!(strcmp(arg[2], "rw"))) {
+                df = open(arg[1], O_RDWR);
+                proteccion = PROT_READ | PROT_WRITE;
+            } else if (!(strcmp(arg[2], "r"))) {
+                df = open(arg[1], O_RDONLY);
+                proteccion = PROT_READ;
+            } else if (!(strcmp(arg[2], "w"))) {
+                df = open(arg[1], O_WRONLY);
+                proteccion = PROT_WRITE;
+            } else {
+                printf("Permisos validos: rw, r, w\n");
+                return;
+            }
+            
+            if (df == -1){
+                perror("open");
+                return;
+            }
+
+            if(fstat(df, &dt) == -1) {
+                perror("fstat");
+                close(df);
+                return;
+            }
+
+            tam = dt.st_size;
+            if (tam == 0) {
+                printf("El fichero está vacío\n");
+                close(df);
+                return;
+            }
+
+            dir = mmap(NULL, tam, proteccion, MAP_SHARED, df, 0);
+            if (dir == MAP_FAILED) {
+                perror("mmap");
+                close(df);
+                return;
+            }
+
+            int pos = buscarHuecoMemoria();
+            if (pos == -1) {
+                munmap(dir, tam);
+                close(df);
+                printf("No hay huecos libres en la tabla de memoria\n");
+                return;
+            }
+
+            registrarMemoria(pos, dir, tam, 4, 0, arg[1]);
+            printf("fichero %s mapeado en %p\n", arg[1], dir);
+        }
 
     } else {
         perror("uso: allocate [-malloc|-shared|-createshared|-mmap]\n");
         return;
     }
-
 }

@@ -14,7 +14,6 @@
 #include <string.h>
 #include <time.h>
 #include <sys/wait.h>
-#include <unistd.h>
 #include <sys/utsname.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -23,6 +22,8 @@
 #include <pwd.h>
 #include <grp.h>
 #include <dirent.h>
+#include <sys/shm.h>
+#include <sys/mman.h>
 
 #include "path.h"
 #include "fichabiertos.h"
