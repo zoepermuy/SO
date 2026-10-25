@@ -85,6 +85,9 @@ static struct COMANDO C[]={
       "\t-acc: accesstime\n"
       "\t-link: si es enlace simbolico, el path contenido"},
    {"allocate", Cmd_allocate, "[-malloc][-shared][-createshared][-mmap] tam\tReserva bloques de memoria\n"},
+   {"deallocate", Cmd_deallocate, "[-malloc][-shared][-mmap][-delkey][addr]\tLibera bloques de memoria\n"},
+   {"memfill", Cmd_memfill, "addr cont hcode\tRellena cont bytes de memoria con el valor hcode\n"},
+   {"memdump", Cmd_memdump, "addr cont\tMuestra cont bytes de memoria en caracteres y valores hexadecimales\n"},
    {NULL,NULL},
   };
 

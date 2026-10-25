@@ -730,7 +730,7 @@ void Cmd_allocate(char *arg[]) {
                     free(mem);
                     return;
                 }
-                registrarMemoria(id, mem, tam, 1, 0, NULL);
+                registrarMemoria(id, mem, tam, 1, 0, NULL, -1);
                 printf("Asignados %zu bytes en %p\n", tam, mem);
 
             }            
@@ -745,7 +745,7 @@ void Cmd_allocate(char *arg[]) {
             clave = atoi(arg[1]);
             tam = atoi(arg[2]);
 
-            shmid =shmget(clave, tam, IPC_CREAT);
+            shmid =shmget(clave, tam, IPC_CREAT | 0666);
             if (shmid == -1) {
                 perror("shmget");
                 return;
@@ -760,7 +760,7 @@ void Cmd_allocate(char *arg[]) {
                     shmdt(dir);
                     return;
                 }
-                registrarMemoria(pos, dir, tam, 3, clave, NULL);
+                registrarMemoria(pos, dir, tam, 3, clave, NULL, -1);
                 printf("Asignados %zu bytes en %p\n", tam, dir);
             }
         }
@@ -792,7 +792,7 @@ void Cmd_allocate(char *arg[]) {
                     shmdt(dir);
                     return;
                 }
-                registrarMemoria(pos, dir, tam, 2, clave, NULL);
+                registrarMemoria(pos, dir, tam, 2, clave, NULL, -1);
                 printf("Memoria compartida de clave %d en %p\n", clave, dir);
             }
         } 
@@ -810,7 +810,7 @@ void Cmd_allocate(char *arg[]) {
                 df = open(arg[1], O_RDONLY);
                 proteccion = PROT_READ;
             } else if (!(strcmp(arg[2], "w"))) {
-                df = open(arg[1], O_WRONLY);
+                df = open(arg[1], O_RDWR);
                 proteccion = PROT_WRITE;
             } else {
                 printf("Permisos validos: rw, r, w\n");
@@ -850,7 +850,7 @@ void Cmd_allocate(char *arg[]) {
                 return;
             }
 
-            registrarMemoria(pos, dir, tam, 4, 0, arg[1]);
+            registrarMemoria(pos, dir, tam, 4, 0, arg[1], df);
             printf("fichero %s mapeado en %p\n", arg[1], dir);
         }
 
@@ -858,4 +858,203 @@ void Cmd_allocate(char *arg[]) {
         perror("uso: allocate [-malloc|-shared|-createshared|-mmap]\n");
         return;
     }
+}
+
+void Cmd_deallocate(char *arg[]) {
+    size_t tam;
+    int id, shmid;
+    key_t clave;
+    char *nombre;
+    void *dir;
+
+    if (arg[0] == NULL) {
+        listarMemoria();
+        return;
+    } else if (!(strcmp(arg[0], "-malloc"))) {
+        if (arg[1] == NULL) {
+            listarMemoria();
+            return;
+        } else {
+            tam = atoi(arg[1]);
+            if (tam <= 0) {
+                perror("No ejecutado");
+                return;
+            }
+
+            id = buscarBloqueMemoria(tam);
+            if (id == -1) {
+                printf("No hay bloque de ese tamano asignado con malloc\n");
+                return;
+            }
+            free(memoria[id].mem);
+            liberarRegistroMemoria(id);            
+        }
+    } else if (!(strcmp(arg[0], "-shared"))) {
+        if (arg[1] == NULL) {
+            listarMemoria();
+            return;
+        }
+
+        clave = atoi(arg[1]);
+        id = buscarBloqueShared(clave);
+        if (id == -1) {
+            printf("No hay bloque de memoria compartida con esa clave asignada\n");
+            return;
+        }
+
+        if (shmdt(memoria[id].mem) == -1) {
+            perror("shmdt");
+            return;
+        }
+        liberarRegistroMemoria(id);
+
+    } else if (!(strcmp(arg[0], "-mmap"))) {
+        if (arg[1] == NULL) {
+            listarMemoria();
+            return;
+        }
+
+        nombre = arg[1];
+        id = buscarBloqueMmap(nombre);
+        if (id == -1) {
+            printf("No hay bloque de memoria mapeada de ese fichero\n");
+            return;
+        }
+
+        if(munmap(memoria[id].mem, memoria[id].tam) == -1) {
+            perror("munmap");
+            return;
+        }
+
+        if(close(memoria[id].df) == -1) {
+            perror("close");
+            return;
+        }
+
+        liberarRegistroMemoria(id);
+
+    } else if (!(strcmp(arg[0], "-delkey"))) {
+        if (arg[1] == NULL) {
+            listarMemoria();
+            return;
+        }
+
+        clave = atoi(arg[1]);
+        shmid = shmget(clave, 0, 0);
+
+        if(shmid == -1) {
+            perror("shmget");
+            return;
+        }
+
+        if(shmctl(shmid, IPC_RMID, NULL) == -1) {
+            perror("shmctl");
+            return;
+        }
+
+    } else {
+        if (sscanf(arg[0], "%p", &dir) != 1) {
+            printf("Direccion no valida\n");
+            return;
+        }
+
+        id = buscarBloqueDireccion(dir);
+
+        if (id == -1) {
+            printf("Direccion %p no asignada con malloc, shared o mmap\n", dir);
+            return;
+        }
+
+        switch (memoria[id].tipo) {
+            case MALLOC:
+                free(memoria[id].mem);
+                break;
+            
+
+            case CREATESHARED:
+            case SHARED:
+                if (shmdt(memoria[id].mem) == -1) {
+                    perror("shmdt");
+                    return;
+                }
+                break;
+
+            case MMAP:
+                if (munmap(memoria[id].mem, memoria[id].tam) == -1) {
+                    perror("munmap");
+                    return;
+                }
+                if(memoria[id].df != -1) {
+                    if(close(memoria[id].df) == -1) {
+                        perror("close");
+                        return;
+                    }
+                }
+                break;
+
+            default:
+                return;
+        }
+        liberarRegistroMemoria(id);
+    }
+}
+
+void Cmd_memfill(char *arg[]) {
+    void *dir;
+    size_t cont, i;
+    unsigned char valor; //hexadecimal
+    unsigned char *p; //unsigned representa byte para trabajar entre 0 y 255
+
+    if (arg[0] == NULL || arg[1] == NULL || arg[2] == NULL) {
+        printf("Uso: memfill addr cont hcode\n");
+        return;
+    }
+
+    if (sscanf(arg[0], "%p", &dir) != 1) {
+        printf("Direccion no valida\n");
+        return;
+    }
+
+    cont = atoi(arg[1]);
+    valor = (unsigned char) atoi(arg[2]); 
+    p = (unsigned char *) dir; //acceder a cada byte individual
+
+    for (i = 0; i < cont; i++) {
+        p[i] = valor;
+    }
+
+    printf("Rellenados %zu bytes desde la direccion %p con el valor (%02X) en decimal y %c en caracter\n", cont, dir, valor, valor);
+}
+
+void Cmd_memdump(char *arg[]) {
+    void *dir;
+    size_t cont, i;
+    unsigned char *p;
+
+    if (arg[0] == NULL || arg[1] == NULL) {
+        printf("Uso: memdump addr cont\n");
+        return;
+    }
+
+    if (sscanf(arg[0], "%p", &dir) != 1) {
+        printf("Direccion no valida\n");
+        return;
+    }
+
+    cont = atoi(arg[1]);
+    p = (unsigned char *) dir;
+
+    printf("Volcando %zu bytes desde la direccion %p\n", cont, dir);
+
+    printf("%p ->", dir);
+    for (i = 0; i < cont; i++) {
+        printf(" %c ", p[i]);  //simbolo que corresponde al numero
+    }
+    printf("\n");
+
+    printf("%p ->", dir);
+    for (i = 0; i < cont; i++) {
+        printf(" %02X", p[i]);   //valor hexadecimal que corresponde al numero
+    }
+    printf("\n");
 }

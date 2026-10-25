@@ -17,6 +17,7 @@ void inicializarMemoria() {
         memoria[i].tipo = 0;
         memoria[i].clave = 0;
         memoria[i].nombre = NULL;
+        memoria[i].df = -1;
     }
 }
 
@@ -29,7 +30,7 @@ int buscarHuecoMemoria() {
     return -1; // No hay hueco disponible
 }
 
-void registrarMemoria(int id, void *mem, size_t tam, int tipo, key_t clave, const char *nombre) {
+void registrarMemoria(int id, void *mem, size_t tam, int tipo, key_t clave, const char *nombre, int df) {
     if (id < 0 || id >= MAX_MEM) {
         printf("Error: índice de memoria fuera de rango\n");
         return;
@@ -39,6 +40,7 @@ void registrarMemoria(int id, void *mem, size_t tam, int tipo, key_t clave, cons
     memoria[id].fecha = time(NULL);
     memoria[id].tipo = tipo;
     memoria[id].clave = clave;
+    memoria[id].df = df;
     if (nombre == NULL) {
         memoria[id].nombre = NULL;
      } else {
@@ -54,4 +56,67 @@ void listarMemoria(void) {
             printf("\t%p \t%zu bytes\n", memoria[i].mem, memoria[i].tam);
         }
     }
+}
+
+void liberarRegistroMemoria(int id) {
+    if (id < 0 || id >= MAX_MEM) {
+        return;
+    }
+
+    free(memoria[id].nombre);
+
+    memoria[id].mem = NULL;
+    memoria[id].tam = 0;
+    memoria[id].fecha = 0;
+    memoria[id].tipo = 0;
+    memoria[id].clave = 0;
+    memoria[id].nombre = NULL;
+    memoria[id].df = -1;
+}
+
+int buscarBloqueMemoria(size_t tam) {
+    int i;
+
+    for (i = 0; i < MAX_MEM; i++) {
+        if (memoria[i].mem != NULL && memoria[i].tipo == 1 && memoria[i].tam == tam) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int buscarBloqueShared(key_t clave) {
+    int i;
+
+    for (i = 0; i < MAX_MEM; i++) {
+        if (memoria[i].mem != NULL &&
+            (memoria[i].tipo == 2 ||
+             memoria[i].tipo == 3) &&
+            memoria[i].clave == clave) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int buscarBloqueMmap(const char *nombre) {
+    int i;
+
+    for (i = 0; i < MAX_MEM; i++) {
+        if(memoria[i].mem != NULL && memoria[i].tipo == 4 && strcmp(memoria[i].nombre, nombre) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int buscarBloqueDireccion(void *dir) {
+    int i;
+
+    for (i = 0; i < MAX_MEM; i++) {
+        if (memoria[i].mem == dir) {
+            return i;
+        }
+    }
+    return -1;
 }

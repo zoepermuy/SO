@@ -10,6 +10,8 @@
 #define CREATESHARED 3
 #define MMAP 4
 
+#define MAX_MEM 2048
+
 typedef struct {
     void * mem;
     size_t tam;
@@ -20,10 +22,17 @@ typedef struct {
     int df;
 } tMem;
 
+extern tMem memoria[MAX_MEM]; //PREGUNTAR es para decir que existe pero no declararla aqui
+
 
 void inicializarMemoria(void);
 int buscarHuecoMemoria(void);
-void registrarMemoria(int id, void *mem, size_t tam, int tipo, key_t clave, const char *nombre);
+void registrarMemoria(int id, void *mem, size_t tam, int tipo, key_t clave, const char *nombre, int df);
 void listarMemoria(void);
+void liberarRegistroMemoria(int id);
+int buscarBloqueMemoria(size_t tam);
+int buscarBloqueShared(key_t clave);
+int buscarBloqueMmap(const char *nombre);
+int buscarBloqueDireccion(void *dir);
 
 #endif

@@ -58,6 +58,9 @@ void Cmd_deltree(char *arg[]);
 void Cmd_listfile(char *arg[]);
 void Cmd_list(char *arg[]);
 void Cmd_allocate(char *arg[]);
+void Cmd_deallocate(char *arg[]);
+void Cmd_memfill(char *arg[]);
+void Cmd_memdump(char *arg[]);
 
 
 
