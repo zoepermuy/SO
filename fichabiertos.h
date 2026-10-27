@@ -17,7 +17,7 @@
 #define MAXNAME 512
 
 
-/*LISTA ESTÁTICA: preferente para acceso directo, 20 slots*/
+/*LISTA ESTÁTICA: preferente para acceso directo*/
 typedef struct {
     char name[MAXNAME];
     int mode;

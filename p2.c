@@ -14,6 +14,7 @@
 
 
 #include "start.h"
+#include "memoria.h"
 
 
 #define MAXENTRADA 2048
@@ -150,6 +151,7 @@ void ProcesarEntrada(char * entrada)
 int  main(int argc, char *argv[], char *ent[])
 {
    inicializarListaF();
+   inicializarMemoria();
    char entrada[MAXENTRADA];
 
    if (argv[1]==NULL)

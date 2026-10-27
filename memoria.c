@@ -7,7 +7,7 @@
 
 #define MAX_MEM 2048
 
-tMem memoria[MAX_MEM];
+static tMem memoria[MAX_MEM];
 
 void inicializarMemoria() {
     for (int i = 0; i < MAX_MEM; i++) {

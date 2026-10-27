@@ -6,6 +6,7 @@
  */
 
 #include "start.h"
+#include "memoria.h"
 
 
 void AniadirAlPath(char *dir)

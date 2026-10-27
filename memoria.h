@@ -4,6 +4,10 @@
 #include <sys/types.h>
 #include <time.h>
 #include <sys/shm.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #define MALLOC 1
 #define SHARED 2
@@ -22,7 +26,7 @@ typedef struct {
     int df;
 } tMem;
 
-extern tMem memoria[MAX_MEM]; //PREGUNTAR es para decir que existe pero no declararla aqui
+typedef tMem mList[MAX_MEM];
 
 
 void inicializarMemoria(void);
