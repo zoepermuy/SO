@@ -1,13 +1,7 @@
 #include "memoria.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
 
-#define MAX_MEM 2048
-
-static tMem memoria[MAX_MEM];
+static mList memoria; //mantener en memoria durante todo el programa
 
 void inicializarMemoria() {
     for (int i = 0; i < MAX_MEM; i++) {
