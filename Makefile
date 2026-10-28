@@ -1,6 +1,9 @@
 CC = gcc
 CFLAGS = -g -Wall
 
+valgrind: p2
+	valgrind --leak-check=full --show-reachable=yes ./p2
+
 p2: p2.c start.o path.o listasimple.o fichabiertos.o memoria.o
 	$(CC) -o p2 $(CFLAGS) p2.c start.o path.o listasimple.o fichabiertos.o memoria.o
 

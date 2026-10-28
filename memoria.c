@@ -47,7 +47,7 @@ void listarMemoria(void) {
 
     for (int i = 0; i < MAX_MEM; i++) {
         if (memoria[i].mem != NULL) {
-            printf("\t%p \t%zu bytes\n", memoria[i].mem, memoria[i].tam);
+            printf("\t%p \t%ld bytes\n", memoria[i].mem, memoria[i].tam);
         }
     }
 }

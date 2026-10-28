@@ -6,7 +6,6 @@
  */
 
 #include "start.h"
-#include "memoria.h"
 
 
 void AniadirAlPath(char *dir)
@@ -314,7 +313,7 @@ void Cmd_readstr(char *arg[]) {
 
     if (leidoBytes == -1) {
         perror("Imposible leer");
-        //free(leido);
+        free(leido);
         return;
     } else {
         leido[cont]='\0'; //por si acaso
@@ -720,10 +719,10 @@ void Cmd_allocate(char *arg[]) {
         if (arg[1] == NULL) {
             listarMemoria();
         } else {
-            tam = atoi(arg[1]);
+            tam = atol(arg[1]);
             mem = malloc(tam);
             if (mem == NULL) {
-                perror("malloc\n");
+                perror("Imposible reservar memoria");
                 return;
             } else {
                 id = buscarHuecoMemoria();
@@ -732,7 +731,7 @@ void Cmd_allocate(char *arg[]) {
                     return;
                 }
                 registrarMemoria(id, mem, tam, 1, 0, NULL, -1);
-                printf("Asignados %zu bytes en %p\n", tam, mem);
+                printf("Asignados %ld bytes en %p\n", tam, mem);
 
             }            
         }
