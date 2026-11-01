@@ -1,0 +1,92 @@
+
+void Cmd_read(char *arg[]) {
+    int df;
+    void *dir;
+    size_t tam;
+    ssize_t tamReal;
+
+    if (arg[0] == NULL || arg[1] == NULL || arg[2] == NULL) {
+        printf("Uso: read df addr cont\n");
+        return;
+    }
+
+    df = atoi(arg[0]);
+    if (sscanf(arg[1], "%p", &dir) != 1) {
+        printf("Direccion no valida\n");
+        return;
+    }
+    tam = atoi(arg[2]);
+    if (tam <= 0) {
+        printf("Cantidad de bytes a leer no valida\n");
+        return;
+    }
+    tamReal = read(df, dir, tam);
+    if (tamReal == -1) {
+        perror("read");
+        return;
+    }
+    printf("Leidos %zd bytes desde el descriptor %d en la direccion %p\n", tamReal, df, dir);
+}
+
+void Cmd_write(char *arg[]) {
+    int df;
+    void *dir;
+    size_t tam;
+    ssize_t tamReal;
+
+    if (arg[0] == NULL || arg[1] == NULL || arg[2] == NULL) {
+        printf("Uso: write df addr cont\n");
+        return;
+    }
+
+    df = atoi(arg[0]);
+    if (sscanf(arg[1], "%p", &dir) != 1) {
+        printf("Direccion no valida\n");
+        return;
+    }
+    tam = atoi(arg[2]);
+    if (tam <= 0) {
+        printf("Cantidad de bytes a escribir no valida\n");
+        return;
+    }
+    tamReal = write(df, dir, tam);
+    if (tamReal == -1) {
+        perror("write");
+        return;
+    }
+    printf("Escritos %zd bytes desde la direccion %p en el descriptor %d\n", tamReal, dir, df);
+}
+
+void auxRecursiva(int n) {
+    char automatico[2048]; //array en pila
+    static char estatico[2048]; //array en segmento de datos
+    char*dinamico = NULL; //array en heap
+
+    dinamico = malloc(2048);
+
+    if (dinamico == NULL) {
+        perror("Error en malloc");
+        return;
+    }
+    printf("parametro: %2d(%p) array %p, arr estatico %p, arr dinamico %p\n", n, (void *)&n, (void *)automatico, (void *)estatico, (void *)dinamico);
+    
+    if (n > 1) {
+        auxRecursiva(n - 1);
+    }
+    free(dinamico);
+}
+
+
+void Cmd_recurse(char *arg[]) {
+    int n;
+
+    if (arg[0] == NULL) {
+        printf("Uso: recurse n\n");
+        return;
+    }
+
+    n = atoi(arg[0]);
+
+    auxRecursiva(n);
+}
+
