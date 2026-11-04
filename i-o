@@ -1,0 +1,79 @@
+
+void do_IOReadFile (char *ar[])
+{
+   void *p;
+   size_t cont=-1;  /*si no pasamos tamano se lee entero */
+   ssize_t n;
+   if (ar[0]==NULL || ar[1]==NULL){
+	printf ("faltan parametros\n");
+	return;
+   }
+   p=CadenatoPointer(ar[1]);  /*convertimos de cadena a puntero*/
+   if (ar[2]!=NULL)
+	cont=(size_t) atoll(ar[2]);
+
+   if ((n=LeerFichero(ar[0],p,cont))==-1)
+	perror ("Imposible leer fichero");
+   else
+	printf ("leidos %lld bytes de %s en %p\n",(long long) n,ar[0],p);
+}
+
+void do_IOWriteFile (char *ar[]) {
+    char *f, *dir, *cnt;
+    void *p;
+    ssize_t escrito;
+    int df;
+
+    if (ar[0] == NULL || ar[1] == NULL || ar[2] == NULL) {
+        printf("Faltan parametros\n");
+        return;
+    }
+
+    if (!(strcmp(ar[0], "-o")) && ar[3] == NULL) {
+        printf("Faltan parametros\n");
+        return;
+    }
+
+    if (!(strcmp(ar[0], "-o"))) {
+        f = ar[1];
+        dir = ar[2];
+        cnt = ar[3];
+        p = CadenatoPointer(dir);
+        df = open(f, O_WRONLY | O_TRUNC);
+    } else {
+            f = ar[0];
+            dir = ar[1];
+            cnt = ar[2];
+            p = CadenatoPointer(dir);
+            df = open(f, O_WRONLY);
+    }
+    if (df == -1) {
+        perror("open");
+        return;
+    }        
+    escrito = write(df, p, atoi(cnt));
+    if (escrito == -1) {
+        perror("write");
+        close(df);
+        return;
+    }
+    printf("Escritos %zd bytes desde la direccion %p en el descriptor %d\n", escrito, p, df);
+    close(df);
+}
+
+void Cmd_io(char *arg[]) {
+
+    if (arg[0] == NULL) {
+        printf("Uso: i-o read|write [-o] f addr cnt\n");
+        return;
+    }
+
+    if(!(strcmp(arg[0], "read"))) {
+        do_IOReadFile(arg + 1); //ya se comprueba en la funcion si se pasan todos los parametros necesarios
+    } else if (!(strcmp(arg[0], "write"))) {
+        do_IOWriteFile(arg + 1);
+    } else {
+        printf("Uso: i-o read|write [-o] f addr cnt\n");
+        return;
+    }
+}
