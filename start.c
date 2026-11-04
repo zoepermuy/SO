@@ -702,300 +702,291 @@ void Cmd_list (char *arg[]) {
     }
 }
 
-void Cmd_allocate(char *arg[]) {
-    size_t tam;
-    key_t clave;
-    void *mem, *dir;
-    int id, shmid, df, proteccion;
-    struct shmid_ds datos;
-    struct stat dt;
-    
-    if (arg[0] == NULL) {
-        listarMemoria();
-        return;
+
+void * ObtenerMemoriaShmget (key_t clave, size_t tam)
+{
+    void * p;
+    int aux,id,flags=0777; /*los 9 bits menos significativos de los flags:permisos*/
+    struct shmid_ds s;
+
+    if (tam)     /*IMPORTANTE: tam distito de 0 indica crear */
+        flags=flags | IPC_CREAT | IPC_EXCL; /*cuando no es crear pasamos de tamano 0*/
+    if (clave==IPC_PRIVATE)  /*no nos vale*/
+        {errno=EINVAL; return NULL;}
+    if ((id=shmget(clave, tam, flags))==-1)
+        return (NULL);
+    if ((p=shmat(id,NULL,0))==(void*) -1){
+        aux=errno;
+        if (tam)
+             shmctl(id,IPC_RMID,NULL);
+        errno=aux;
+        return (NULL);
     }
+    shmctl (id,IPC_STAT,&s); /* si no es crear, necesitamos el tamano, que es s.shm_segsz*/
+    if (!registrarMemoria(p, s.shm_segsz, T_SHARED, clave, NULL, -1)) {
+        if (tam)
+            shmctl(id, IPC_RMID, NULL); //borrar la clave si el tamaño es dif de 0, porque estaba creando
+        errno = 0; //para aclarar que fue porque no hay espacio
+        return NULL;
+    }
+
+    return (p);
+}
+
+void do_AllocateCreateShared (char *tr[])
+{
+   key_t cl;
+   size_t tam;
+   void *p;
+
+   if (tr[0]==NULL || tr[1]==NULL) {
+		listarMemoria();
+		return;
+   }
+  
+   cl=(key_t)  strtoul(tr[0],NULL,10);
+   tam=(size_t) strtoul(tr[1],NULL,10);
+
+   if (tam==0) {
+        printf ("No se asignan bloques de 0 bytes\n");
+        return;
+   }
+   if ((p=ObtenerMemoriaShmget(cl,tam))!=NULL)
+		printf ("Asignados %lu bytes en %p\n",(unsigned long) tam, p);
+   else if (errno) //si errno!=0 porque si es 0 dio error por el tema del espacio en la lista
+		printf ("Imposible asignar memoria compartida clave %lu:%s\n",(unsigned long) cl,strerror(errno));
+}
+
+void do_AllocateShared (char *tr[])
+{
+   key_t cl;
+   void *p;
+
+   if (tr[0]==NULL) {
+		listarMemoria();
+		return;
+   }
+  
+   cl=(key_t)  strtoul(tr[0],NULL,10);
+
+   if ((p=ObtenerMemoriaShmget(cl,0))!=NULL)
+		printf ("Asignada memoria compartida de clave %lu en %p\n",(unsigned long) cl, p);
+   else if (errno) //errno distinto de 0, si errno es 0 es porque no hay hueco en la lista
+		printf ("Imposible asignar memoria compartida clave %lu:%s\n",(unsigned long) cl,strerror(errno));
+}
+
+void do_AllocateMalloc(char *tr[]) {
+    size_t tam;
+    void *mem;
     
-    if (!(strcmp(arg[0], "-malloc"))) {
-        if (arg[1] == NULL) {
+    if (tr[0] == NULL) {
             listarMemoria();
         } else {
-            tam = atol(arg[1]);
+            tam = atol(tr[0]);
+            if (tam==0) {
+                printf("No se asignan bloques de 0 bytes\n");
+                return;
+            }
+
             mem = malloc(tam);
             if (mem == NULL) {
                 perror("Imposible reservar memoria");
                 return;
             } else {
-                id = buscarHuecoMemoria();
-                if (id == -1) {
-                    free(mem);
-                    return;
-                }
-                registrarMemoria(id, mem, tam, 1, 0, NULL, -1);
-                printf("Asignados %ld bytes en %p\n", tam, mem);
-
+                if (registrarMemoria(mem, tam, T_MALLOC, 0, NULL, -1))
+                    printf("Asignados %zu bytes en %p\n", tam, mem);
             }            
         }
+}
+
+void * MapearFichero (char * fichero, int protection)
+{
+    int df, map=MAP_PRIVATE,modo=O_RDONLY;
+    struct stat s;
+    void *p;
+
+    if (protection&PROT_WRITE)
+        modo=O_RDWR;
+    if (stat(fichero,&s)==-1 || (df=open(fichero, modo))==-1)
+        return NULL;
+    if ((p=mmap (NULL,s.st_size, protection,map,df,0))==MAP_FAILED) {
+        close(df);
+        return NULL;
+    }
+
+    if(!registrarMemoria(p, s.st_size, T_MMAP, 0, fichero, df)) {
+        errno=0;
+        return NULL;
+    }
+    abrirArchivo(df, modo, fichero); //lista de ficheros abiertos
+    return p;
+}
+
+void do_AllocateMmap(char *arg[])
+{ 
+    char *perm;
+    void *p;
+    int protection=0;
+     
+    if (arg[0]==NULL) {
+        listarMemoria();
+        return;
+    }
+
+    if ((perm=arg[1])!=NULL && strlen(perm)<4) {
+        if (strchr(perm,'r')!=NULL) protection|=PROT_READ;
+        if (strchr(perm,'w')!=NULL) protection|=PROT_WRITE;
+        if (strchr(perm,'x')!=NULL) protection|=PROT_EXEC;
+     }
+     if ((p=MapearFichero(arg[0],protection))!=NULL)
+        printf ("fichero %s mapeado en %p\n", arg[0], p);
+     else if (errno) //si errno es 0 fallo por no haber espacio en la lista
+        perror ("Imposible mapear fichero");
+            
+}
+
+
+void Cmd_allocate(char *arg[]) {
+    
+    if (arg[0] == NULL) {
+        listarMemoria();
+        return;
+    }
+
+    if (!(strcmp(arg[0], "-malloc"))) {
+        do_AllocateMalloc(arg+1);
 
     } else if (!(strcmp(arg[0], "-createshared"))){
-        if (arg[1] == NULL) {
-            listarMemoria();
-        } else  if (arg[2] == NULL) {
-            listarMemoria();
-        } else {
-            clave = atoi(arg[1]);
-            tam = atoi(arg[2]);
-
-            shmid =shmget(clave, tam, IPC_CREAT | 0666);
-            if (shmid == -1) {
-                perror("shmget");
-                return;
-            } else {
-                dir = shmat(shmid, NULL, 0);
-                if (dir == (void *) -1) {
-                    perror("shmat");
-                    return;
-                }
-                int pos = buscarHuecoMemoria();
-                if (pos == -1) {
-                    shmdt(dir);
-                    return;
-                }
-                registrarMemoria(pos, dir, tam, 3, clave, NULL, -1);
-                printf("Asignados %zu bytes en %p\n", tam, dir);
-            }
-        }
-
+        do_AllocateCreateShared(arg+1);
+    
     } else if (!(strcmp(arg[0], "-shared"))){
-        if (arg[1] == NULL) {
-            listarMemoria();
-        } else {
-            clave = atoi(arg[1]);
-
-            shmid = shmget(clave, 0, 0); 
-            if (shmid == -1) {
-                printf("Imposible asignar memoria compartida clave %d", clave);
-                perror("");
-                return;
-            } else {
-                if (shmctl(shmid, IPC_STAT, &datos) == -1){ //tamaño de la memoria compartida es valido
-                    perror("shmctl");
-                    return;
-                }
-                tam = datos.shm_segsz; //tamaño se guarda en shm_segsz de la estructura
-                dir = shmat(shmid, NULL, 0);
-                if (dir == (void *) -1) {
-                    perror("shmat");
-                    return;
-                }
-                int pos = buscarHuecoMemoria();
-                if (pos == -1) {
-                    shmdt(dir);
-                    return;
-                }
-                registrarMemoria(pos, dir, tam, 2, clave, NULL, -1);
-                printf("Memoria compartida de clave %d en %p\n", clave, dir);
-            }
-        } 
+        do_AllocateShared(arg+1)
 
     } else if (!(strcmp(arg[0], "-mmap"))){
-        if (arg[1] == NULL) {
-            listarMemoria();
-        } else  if (arg[2] == NULL) {
-            listarMemoria();
-        } else {
-            if (!(strcmp(arg[2], "rw"))) {
-                df = open(arg[1], O_RDWR);
-                proteccion = PROT_READ | PROT_WRITE;
-            } else if (!(strcmp(arg[2], "r"))) {
-                df = open(arg[1], O_RDONLY);
-                proteccion = PROT_READ;
-            } else if (!(strcmp(arg[2], "w"))) {
-                df = open(arg[1], O_RDWR);
-                proteccion = PROT_WRITE;
-            } else {
-                printf("Permisos validos: rw, r, w\n");
-                return;
-            }
-            
-            if (df == -1){
-                perror("open");
-                return;
-            }
-
-            if(fstat(df, &dt) == -1) {
-                perror("fstat");
-                close(df);
-                return;
-            }
-
-            tam = dt.st_size;
-            if (tam == 0) {
-                printf("El fichero está vacío\n");
-                close(df);
-                return;
-            }
-
-            dir = mmap(NULL, tam, proteccion, MAP_SHARED, df, 0);
-            if (dir == MAP_FAILED) {
-                perror("mmap");
-                close(df);
-                return;
-            }
-
-            int pos = buscarHuecoMemoria();
-            if (pos == -1) {
-                munmap(dir, tam);
-                close(df);
-                printf("No hay huecos libres en la tabla de memoria\n");
-                return;
-            }
-
-            registrarMemoria(pos, dir, tam, 4, 0, arg[1], df);
-            printf("fichero %s mapeado en %p\n", arg[1], dir);
-        }
+        do_AllocateMmap(arg+1);
 
     } else {
-        perror("uso: allocate [-malloc|-shared|-createshared|-mmap]\n");
+        printf("uso: allocate [-malloc|-shared|-createshared|-mmap]\n");
         return;
     }
 }
 
-void Cmd_deallocate(char *arg[]) {
+void do_DeallocateMalloc(char *arg[]) {
     size_t tam;
-    int id, shmid;
-    key_t clave;
-    char *nombre;
-    void *dir;
-
-    if (arg[0] == NULL) {
-        listarMemoria();
-        return;
-    } else if (!(strcmp(arg[0], "-malloc"))) {
-        if (arg[1] == NULL) {
+     if (arg[0] == NULL) {
             listarMemoria();
             return;
         } else {
-            tam = atoi(arg[1]);
-            if (tam <= 0) {
-                perror("No ejecutado");
-                return;
-            }
-
-            id = buscarBloqueMemoria(tam);
+            tam = atol(arg[0]); //si es negativo no va a haber bloque asignado de ese tamaño
+            int id = buscarBloqueMalloc(tam);
             if (id == -1) {
                 printf("No hay bloque de ese tamano asignado con malloc\n");
                 return;
             }
-            free(memoria[id].mem);
-            liberarRegistroMemoria(id);            
+            liberarBloqueMemoria(id);            
         }
-    } else if (!(strcmp(arg[0], "-shared"))) {
-        if (arg[1] == NULL) {
-            listarMemoria();
-            return;
-        }
+}
 
-        clave = atoi(arg[1]);
-        id = buscarBloqueShared(clave);
+void do_DeallocateShared (char *arg[]) {
+    key_t clave;
+
+    if (arg[0] == NULL)  {
+        listarMemoria();
+        return;
+    } else {
+        clave = atol(arg[0]);
+        int id = buscarBloqueShared(clave);
         if (id == -1) {
-            printf("No hay bloque de memoria compartida con esa clave asignada\n");
+            printf("No hay bloque de esa clave mapeado en el proceso\n");
             return;
         }
+        liberarBloqueMemoria(id);
+    }
 
-        if (shmdt(memoria[id].mem) == -1) {
-            perror("shmdt");
-            return;
-        }
-        liberarRegistroMemoria(id);
+}
+
+void do_DeallocateMmap (char *arg[]) {
+    char *nombre;
+
+    if (arg[0] == NULL) {
+        listarMemoria();
+        return;
+    }
+    
+    nombre = arg[1];
+    int id = buscarBloqueMmap(nombre);
+
+    if (id == -1) {
+        printf("Fichero %s no mapeado\n", nombre);
+        return;
+    }
+
+    liberarBloqueMemoria(id);
+}
+
+void do_SharedDelkey (char *args[])
+{
+   key_t clave;
+   int id;
+   char *key=args[0];
+
+   if (key==NULL || (clave=(key_t) strtoul(key,NULL,10))==IPC_PRIVATE){
+        printf ("      delkey necesita clave_valida\n");
+        return;
+   }
+   if ((id=shmget(clave,0,0666))==-1){
+        perror ("shmget: imposible obtener memoria compartida");
+        return;
+   }
+   if (shmctl(id,IPC_RMID,NULL)==-1)
+        perror ("shmctl: imposible eliminar memoria compartida");
+}
+
+void * CadenatoPointer (char * s)
+{
+  void *p;
+  sscanf(s,"%p",&p);
+  return p;
+}
+
+void do_DeallocateAddr(char *arg[]) {
+    
+    void *dir = CadenaToPointer(arg[0]);
+    if (dir==NULL) { //sscanf fallido
+        printf("Direccion invalida\n");
+        return;
+    }
+
+    int id = buscarBloqueDireccion(dir);
+
+    if (id == -1) {
+        printf("Direccion %p no asignada con malloc, shared o mmap\n", dir);
+        return;
+    }
+
+    liberarBloqueMemoria(id);
+}
+
+void Cmd_deallocate(char *arg[]) {
+
+    if (arg[0] == NULL) {
+        listarMemoria();
+        return;
+
+    } else if (!(strcmp(arg[0], "-malloc"))) {
+        do_DeallocateMalloc(arg+1);
+
+    } else if (!(strcmp(arg[0], "-shared"))) {
+        do_DeallocateShared(arg+1);
 
     } else if (!(strcmp(arg[0], "-mmap"))) {
-        if (arg[1] == NULL) {
-            listarMemoria();
-            return;
-        }
-
-        nombre = arg[1];
-        id = buscarBloqueMmap(nombre);
-        if (id == -1) {
-            printf("No hay bloque de memoria mapeada de ese fichero\n");
-            return;
-        }
-
-        if(munmap(memoria[id].mem, memoria[id].tam) == -1) {
-            perror("munmap");
-            return;
-        }
-
-        if(close(memoria[id].df) == -1) {
-            perror("close");
-            return;
-        }
-
-        liberarRegistroMemoria(id);
+        do_DeallocateMmap(arg+1);
 
     } else if (!(strcmp(arg[0], "-delkey"))) {
-        if (arg[1] == NULL) {
-            listarMemoria();
-            return;
-        }
-
-        clave = atoi(arg[1]);
-        shmid = shmget(clave, 0, 0);
-
-        if(shmid == -1) {
-            perror("shmget");
-            return;
-        }
-
-        if(shmctl(shmid, IPC_RMID, NULL) == -1) {
-            perror("shmctl");
-            return;
-        }
+        do_SharedDelkey(arg+1);
 
     } else {
-        if (sscanf(arg[0], "%p", &dir) != 1) {
-            printf("Direccion no valida\n");
-            return;
-        }
-
-        id = buscarBloqueDireccion(dir);
-
-        if (id == -1) {
-            printf("Direccion %p no asignada con malloc, shared o mmap\n", dir);
-            return;
-        }
-
-        switch (memoria[id].tipo) {
-            case MALLOC:
-                free(memoria[id].mem);
-                break;
-            
-
-            case CREATESHARED:
-            case SHARED:
-                if (shmdt(memoria[id].mem) == -1) {
-                    perror("shmdt");
-                    return;
-                }
-                break;
-
-            case MMAP:
-                if (munmap(memoria[id].mem, memoria[id].tam) == -1) {
-                    perror("munmap");
-                    return;
-                }
-                if(memoria[id].df != -1) {
-                    if(close(memoria[id].df) == -1) {
-                        perror("close");
-                        return;
-                    }
-                }
-                break;
-
-            default:
-                return;
-        }
-        liberarRegistroMemoria(id);
+        do_DeallocateAddr(arg);
     }
 }
 
