@@ -169,3 +169,12 @@ int buscarBloqueDireccion(void *dir) {
     }
     return -1;
 }
+
+void vaciarMemoria() {
+    for (int i = 0; i < MAX_MEM; i++) {
+        if (memoria[i].mem != NULL) {
+            liberarBloqueMemoria(i);
+            liberarRegistroMemoria(i); //por si acaso
+        }
+    }
+}

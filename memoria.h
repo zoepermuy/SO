@@ -41,5 +41,6 @@ int buscarBloqueMalloc(size_t tam);
 int buscarBloqueShared(key_t clave);
 int buscarBloqueMmap(const char *nombre);
 int buscarBloqueDireccion(void *dir);
+void vaciarMemoria(void);
 
 #endif

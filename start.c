@@ -68,6 +68,7 @@ void Proceso (char *tr[], int splano)
 /*************COMANDOS DEL SHELL************************/
 void Cmd_fin (char * arg[])  /*todos los cmd_ comparten prototipo*/
 {                            /*reciben los mismos parametros aunque no los usen*/
+    vaciarMemoria();
     exit(0);
 }
 
