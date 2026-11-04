@@ -8,6 +8,9 @@
 #include "start.h"
 
 
+#define TAMANO 2048 //para recurse
+
+
 void AniadirAlPath(char *dir)
 {
     if (dir==NULL || !strcpy("", dir))
@@ -991,31 +994,57 @@ void Cmd_deallocate(char *arg[]) {
     }
 }
 
+void Recursiva (int n)
+{
+  char automatico[TAMANO];
+  static char estatico[TAMANO];
+
+  printf ("parametro:%3d(%p) array %p, arr estatico %p\n",n,&n,automatico, estatico);
+
+  if (n>0)
+    Recursiva(n-1);
+}
+
+void Cmd_recurse(char *arg[]) {
+    int n;
+
+    if (arg[0]==NULL) 
+        return;
+
+    n = atoi(arg[0]);
+    Recursiva(n);
+
+}
+
+void LlenarMemoria (void *p, size_t cont, unsigned char byte)
+{
+  unsigned char *arr=(unsigned char *) p;
+  size_t i;
+
+  for (i=0; i<cont;i++)
+		arr[i]=byte;
+}
+
 void Cmd_memfill(char *arg[]) {
-    void *dir;
-    size_t cont, i;
-    unsigned char valor; //hexadecimal
-    unsigned char *p; //unsigned representa byte para trabajar entre 0 y 255
+    void *p;
+    size_t cont=128; //Segun shell de referencia este era el valor por defecto
+    unsigned char byte = 'A'; //hexadecimal
 
-    if (arg[0] == NULL || arg[1] == NULL || arg[2] == NULL) {
-        printf("Uso: memfill addr cont hcode\n");
+    if (arg[0] == NULL) {
         return;
     }
+    p = CadenatoPointer(arg[0]);
 
-    if (sscanf(arg[0], "%p", &dir) != 1) {
-        printf("Direccion no valida\n");
-        return;
+    if (arg[1]!= NULL) {
+        cont = atol(arg[1]);
+        if (arg[2]!= NULL) {
+            byte = (unsigned char) atoi(arg[2]);
+        }
     }
 
-    cont = atoi(arg[1]);
-    valor = (unsigned char) atoi(arg[2]); 
-    p = (unsigned char *) dir; //acceder a cada byte individual
+    LlenarMemoria(p, cont, byte);
 
-    for (i = 0; i < cont; i++) {
-        p[i] = valor;
-    }
-
-    printf("Rellenados %zu bytes desde la direccion %p con el valor (%02X) en decimal y %c en caracter\n", cont, dir, valor, valor);
+    printf("Llenando %zu bytes de memoria con el byte %c(%02X) a partir de la direccion %p", cont, byte, byte, p);
 }
 
 void Cmd_memdump(char *arg[]) {
