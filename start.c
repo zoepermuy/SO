@@ -955,7 +955,7 @@ void * CadenatoPointer (char * s)
 
 void do_DeallocateAddr(char *arg[]) {
     
-    void *dir = CadenaToPointer(arg[0]);
+    void *dir = CadenatoPointer(arg[0]);
     if (dir==NULL) { //sscanf fallido
         printf("Direccion invalida\n");
         return;
@@ -1036,46 +1036,98 @@ void Cmd_memfill(char *arg[]) {
     p = CadenatoPointer(arg[0]);
 
     if (arg[1]!= NULL) {
-        cont = atol(arg[1]);
+        cont = strtoul(arg[1], NULL, 10);
         if (arg[2]!= NULL) {
-            byte = (unsigned char) atoi(arg[2]);
+            byte = (unsigned char) strtoul(arg[2], NULL, 16);
         }
     }
+    printf("Llenando %zu bytes de memoria con el byte %c(%02X) a partir de la direccion %p\n", cont, byte, byte, p);
 
     LlenarMemoria(p, cont, byte);
-
-    printf("Llenando %zu bytes de memoria con el byte %c(%02X) a partir de la direccion %p", cont, byte, byte, p);
 }
 
 void Cmd_memdump(char *arg[]) {
-    void *dir;
-    size_t cont, i;
     unsigned char *p;
+    size_t cont=20, i; //por defecto segun shell referencia
 
-    if (arg[0] == NULL || arg[1] == NULL) {
-        printf("Uso: memdump addr cont\n");
+    if (arg[0] == NULL) {
         return;
     }
 
-    if (sscanf(arg[0], "%p", &dir) != 1) {
-        printf("Direccion no valida\n");
+    p = (unsigned char *) CadenatoPointer(arg[0]);
+
+    if (arg[1]!=NULL) {
+        cont = strtoul(arg[1], NULL, 10);
+    }
+
+    printf("Volcando %zu bytes desde la direccion %p\n", cont, p);
+
+    int stop = 0;
+    do {
+        printf("%p ->", p);
+        for (i = 0; i<20 && i< cont; i++) {
+            printf(" %c ", p[i]);  //simbolo que corresponde al numero
+        }
+        printf("\n");
+
+        printf("%p ->", p);
+        for (i = 0; i<20 && i < cont; i++) {
+            printf(" %02x", p[i]);   //valor hexadecimal que corresponde al numero
+        }
+        printf("\n");
+
+        if (cont=<20) {
+            stop=1;
+        } else {
+            cont-=20;
+            p+=20;
+        }
+
+    } while (!stop);
+    
+}
+
+void Cmd_read(char *arg[]) {
+    if (arg[0]==NULL || arg[1]==NULL || arg[2]==NULL) {
+        printf("Parametros incorrectos\n");
         return;
     }
 
-    cont = atoi(arg[1]);
-    p = (unsigned char *) dir;
+    int df = atoi(arg[0]);
+    void* p = CadenatoPointer(arg[1]);
+    size_t cont = strtoul(arg[2], NULL, 10);
+    ssize_t bytesLeidos;
 
-    printf("Volcando %zu bytes desde la direccion %p\n", cont, dir);
+    bytesLeidos = read (df, p, cont);
 
-    printf("%p ->", dir);
-    for (i = 0; i < cont; i++) {
-        printf(" %c ", p[i]);  //simbolo que corresponde al numero
+    if (bytesLeidos == -1) {
+        printf("Error al leer del descriptor %d a la direccion %p: %s\n", df, p, strerror(errno));
+        return;
     }
-    printf("\n");
 
-    printf("%p ->", dir);
-    for (i = 0; i < cont; i++) {
-        printf(" %02X", p[i]);   //valor hexadecimal que corresponde al numero
+    printf("Leidos %zd bytes del descriptor %d en la direccion %p\n", bytesLeidos, df, p);
+
+}
+
+
+void Cmd_write(char *arg[]) {
+    if (arg[0]==NULL || arg[1]==NULL || arg[2]==NULL) {
+        printf("Parametros incorrectos\n");
+        return;
     }
-    printf("\n");
+
+    int df = atoi(arg[0]);
+    void* p = CadenatoPointer(arg[1]);
+    size_t cont = strtoul(arg[2], NULL, 10);
+    ssize_t bytesEscritos;
+
+    bytesEscritos = write (df, p, cont);
+
+    if (bytesEscritos == -1) {
+        printf("Error al escribir en el descriptor %d desde la direccion %p: %s\n", df, p, strerror(errno));
+        return;
+    }
+
+    printf("Escritos %zd bytes en el descriptor %d desde la direccion %p\n", bytesEscritos, df, p);
+
 }
