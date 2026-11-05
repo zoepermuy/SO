@@ -1,0 +1,86 @@
+
+void Do_funcs() {
+    printf("Funciones programa\t%p,\t%p,\t%p\n", (void *)Cmd_allocate, (void *)Cmd_read, (void *)Cmd_recurse);
+    printf("Funciones libreria\t%p,\t%p,\t%p\n", (void *)malloc, (void *)strcpy, (void *)free);
+}
+
+/*Variables globales inicializadas*/
+int global1 = 5, global2 = 10, global3 = 15;
+
+/*Variables globales no inicializadas*/
+int global4, global5, global6;
+
+void Do_vars() {
+    /*Variables locales*/
+    int local1, local2, local3;
+
+    /*Variables static inicializadas*/
+    static int static1 = 5, static2 = 10, static3 = 15;
+
+    /*Variables static no inicializadas*/
+    static int static4, static5, static6;
+
+    printf("Variables locales\t%p,\t%p,\t%p\n", (void *)&local1, (void *)&local2, (void *)&local3);
+    printf("Variables globales\t%p,\t%p,\t%p\n", (void *)&global1, (void *)&global2, (void *)&global3);
+    printf("Variables globales (N. I.)\t%p,\t%p,\t%p\n", (void *)&global4, (void *)&global5, (void *)&global6);
+    printf("Variables estaticas\t%p,\t%p,\t%p\n", (void *)&static1, (void *)&static2, (void *)&static3);
+    printf("Variables estaticas (N. I.)\t%p,\t%p,\t%p\n", (void *)&static4, (void *)&static5, (void *)&static6);
+
+}
+
+void Do_pmap (void) /*sin argumentos*/
+ { pid_t pid;       /*hace el pmap (o equivalente) del proceso actual*/
+   char elpid[32];
+   char *argv[4]={"pmap",elpid,NULL};
+   
+   sprintf (elpid,"%d", (int) getpid());
+   if ((pid=fork())==-1){
+      perror ("Imposible crear proceso");
+      return;
+      }
+   if (pid==0){
+      if (execvp(argv[0],argv)==-1)
+         perror("cannot execute pmap (linux, solaris)");
+         
+      argv[0]="procstat"; argv[1]="vm"; argv[2]=elpid; argv[3]=NULL;   
+      if (execvp(argv[0],argv)==-1)/*No hay pmap, probamos procstat FreeBSD */
+         perror("cannot execute procstat (FreeBSD)");
+         
+      argv[0]="procmap",argv[1]=elpid;argv[2]=NULL;    
+            if (execvp(argv[0],argv)==-1)  /*probamos procmap OpenBSD*/
+         perror("cannot execute procmap (OpenBSD)");
+         
+      argv[0]="vmmap"; argv[1]="-interleave"; argv[2]=elpid;argv[3]=NULL;
+      if (execvp(argv[0],argv)==-1) /*probamos vmmap Mac-OS*/
+         perror("cannot execute vmmap (Mac-OS)");      
+      exit(1);
+  }
+  waitpid (pid,NULL,0);
+}
+
+void Cmd_memory(char *arg[]) {
+
+    if(arg[0] == NULL) {
+        Do_funcs();
+        Do_vars();
+        listarMemoria();
+        return;
+    }
+
+    if(!(strcmp(arg[0], "-blocks"))) {
+        listarMemoria();
+    } else if (!(strcmp(arg[0], "-funcs"))) {
+        Do_funcs();
+    } else if (!(strcmp(arg[0], "-vars"))) {
+        Do_vars();
+    } else if(!(strcmp(arg[0], "-all"))) {
+        Do_funcs();
+        Do_vars();
+        listarMemoria();
+    } else if (!(strcmp(arg[0], "-pmap"))) {
+        Do_pmap();
+    } else {
+        printf("Uso: memory [-blocks|-funcs|-vars|-all|-pmap]\n");
+        return;
+    }
+}
