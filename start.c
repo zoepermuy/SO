@@ -730,7 +730,7 @@ void * ObtenerMemoriaShmget (key_t clave, size_t tam)
         return (NULL);
     }
     shmctl (id,IPC_STAT,&s); /* si no es crear, necesitamos el tamano, que es s.shm_segsz*/
-    if (!registrarMemoria(p, s.shm_segsz, T_SHARED, clave, NULL, -1)) { //COMPROBAR SI FALLA PARA SEPARAR SEGMENTO Y NO TENER UNA MEMORIA COMPARTIDA SIN REGISTRAR
+    if (!registrarMemoria(p, s.shm_segsz, T_SHARED, clave, NULL, -1)) { 
         if (tam)
             shmctl(id, IPC_RMID, NULL); //borrar la clave si el tamaño es dif de 0, porque estaba creando
         errno = 0; //para aclarar que fue porque no hay espacio
@@ -801,7 +801,6 @@ void do_AllocateMalloc(char *tr[]) {
                 return;
             } else {
                 if (registrarMemoria(mem, tam, T_MALLOC, 0, NULL, -1))
-                //COMPROBAR SI FALLA????
                     printf("Asignados %zu bytes en %p\n", tam, mem);
             }            
         }
@@ -822,7 +821,7 @@ void * MapearFichero (char * fichero, int protection)
         return NULL;
     }
 
-    if(!registrarMemoria(p, s.st_size, T_MMAP, 0, fichero, df)) {  //LO MISMO DE ANTES COMPROBAR SI FALLA Y CLOSE(DF)
+    if(!registrarMemoria(p, s.st_size, T_MMAP, 0, fichero, df)) {  
         errno=0;
         return NULL;
     }
