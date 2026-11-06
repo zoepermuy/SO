@@ -36,6 +36,7 @@ void inicializarMemoria(void);
 //int buscarHuecoMemoria(void);
 bool registrarMemoria(void *mem, size_t tam, int tipo, key_t clave, const char *nombre, int df);
 void listarMemoria(void);
+void listarMemoriaMalloc(void);
 void liberarRegistroMemoria(int id);
 void liberarBloqueMemoria(int id);
 int buscarBloqueMalloc(size_t tam);

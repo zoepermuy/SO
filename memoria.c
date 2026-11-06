@@ -97,6 +97,20 @@ void listarMemoria(void) {
     }
 }
 
+void listarMemoriaMalloc(void) {
+    struct tm *iTiempo;
+    char iTiempoString[64];
+    printf("******Lista de bloques asignados para el proceso %d\n", getpid());
+    for (int i = 0; i < MAX_MEM; i++) {
+        if (memoria[i].tipo == T_MALLOC && memoria[i].mem != NULL) {
+            iTiempo = localtime(&memoria[i].fecha);
+            strftime(iTiempoString, 64, "%b %e %H:%M", iTiempo);
+            printf("\t%p\t%17zu %s ", memoria[i].mem, memoria[i].tam, iTiempoString);
+            printf("malloc\n");
+        }
+    }
+}
+
 void liberarRegistroMemoria(int id) {
     if (id < 0 || id >= MAX_MEM) {
         return;
