@@ -64,15 +64,35 @@ bool registrarMemoria(void *mem, size_t tam, int tipo, key_t clave, const char *
         memoria[id].nombre = strdup(nombre);
     }
 
+    //anotar que esta mapeado en la lista de ficheros abiertos
+    if (tipo == T_MMAP)
+        changeMapped(df, id);
+
     return true;
 }
 
+void cerrarArchivoMapeado(int id) {
+    memoria[id].df = -1;
+}
+
 void listarMemoria(void) {
+    struct tm *iTiempo;
+    char iTiempoString[64];
     printf("******Lista de bloques asignados para el proceso %d\n", getpid());
 
     for (int i = 0; i < MAX_MEM; i++) {
         if (memoria[i].mem != NULL) {
-            printf("\t%p \t%ld bytes\n", memoria[i].mem, memoria[i].tam);
+            iTiempo = localtime(&memoria[i].fecha);
+            strftime(iTiempoString, 64, "%b %e %H:%M", iTiempo);
+            printf("\t%p\t%17zu %s ", memoria[i].mem, memoria[i].tam, iTiempoString);
+
+            switch(memoria[i].tipo) {
+                case T_MALLOC: printf("malloc"); break;
+                case T_SHARED: printf("shared (key %d)", memoria[i].clave); break;
+                case T_MMAP: printf("%s (descriptor %d)", memoria[i].nombre, memoria[i].df); break;
+            }
+
+            printf("\n");
         }
     }
 }
@@ -123,10 +143,13 @@ void liberarBloqueMemoria(int id) {
                 return;
             }
 
-            if(close(memoria[id].df) == -1) {
-                perror("Imposible cerrar el descriptor");
+            if (memoria[id].df!=-1) { //si no esta cerrado ya por Cmd_close
+                if(close(memoria[id].df) == -1) {
+                    perror("Imposible cerrar el descriptor");
+                }
+                cerrarArchivo(memoria[id].df);
             }
-            cerrarArchivo(memoria[id].df);
+            
             break;
     }
 
@@ -151,7 +174,7 @@ int buscarBloqueMmap(const char *nombre) {
     int i;
 
     for (i = 0; i < MAX_MEM; i++) {
-        if(memoria[i].mem != NULL && memoria[i].tipo == 4 && strcmp(memoria[i].nombre, nombre) == 0) {
+        if(memoria[i].mem != NULL && memoria[i].tipo == T_MMAP && strcmp(memoria[i].nombre, nombre) == 0) {
             return i;
         }
     }

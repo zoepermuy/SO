@@ -44,6 +44,9 @@ void inicializarListaF() {
     OpenFiles[0].isInit = true;
     OpenFiles[1].isInit = true;
     OpenFiles[2].isInit = true;
+    OpenFiles[0].idMapped = -1;
+    OpenFiles[1].idMapped = -1;
+    OpenFiles[2].idMapped = -1;
 
     int i;
     for (i=3; i<20; i++) {
@@ -51,6 +54,7 @@ void inicializarListaF() {
         OpenFiles[i].mode = -1;
         //OpenFiles[i].offset = -1;
         OpenFiles[i].isInit = true; //se inicializan primero 20 elementos del array
+        OpenFiles[i].idMapped = -1;
         }
     while (i<FILESLOTS) {
         OpenFiles[i].isInit = false;
@@ -75,7 +79,15 @@ void abrirArchivo(int df, int mode, char* name) {
 void cerrarArchivo(int df) {
     strcpy(OpenFiles[df].name, "no usado");
     OpenFiles[df].mode = -1;
+
+    /*if (OpenFiles[df].idMapped>=0) {
+        printf("! Este fichero sigue mapeado en memoria\n");
+    }*/
     //OpenFiles[df].offset = -1;
+}
+
+int getIdMemMapeado(int df) {
+    return OpenFiles[df].idMapped;
 }
 
 void duplicarArchivo(int dfOG, int dfDEST) {
@@ -117,6 +129,16 @@ void listarFicherosAbiertos() { //VERSIÓN CON CAMPO OFFSET
     }
 }
 */
+
+
+void changeMapped(int df, int idMapped) {
+    if (df>=FILESLOTS || !OpenFiles[df].isInit) {
+        printf("Error al registrar mapeado en lista ficheros abiertos\n");
+        return;
+    }
+
+    OpenFiles[df].idMapped = idMapped;
+}
 
 void listarFicherosAbiertos() {
     off_t currentOffset;

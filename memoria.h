@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <sys/mman.h>
 
 #define T_MALLOC 1
 #define T_SHARED 2
@@ -42,5 +43,6 @@ int buscarBloqueShared(key_t clave);
 int buscarBloqueMmap(const char *nombre);
 int buscarBloqueDireccion(void *dir);
 void vaciarMemoria(void);
+void cerrarArchivoMapeado(int id);
 
 #endif

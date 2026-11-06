@@ -85,10 +85,22 @@ static struct COMANDO C[]={
       "\t-reca: recursivo (despues)\n"
       "\t-acc: accesstime\n"
       "\t-link: si es enlace simbolico, el path contenido"},
-   {"allocate", Cmd_allocate, "[-malloc][-shared][-createshared][-mmap] tam\tReserva bloques de memoria\n"},
-   {"deallocate", Cmd_deallocate, "[-malloc][-shared][-mmap][-delkey][addr]\tLibera bloques de memoria\n"},
-   {"memfill", Cmd_memfill, "addr cont hcode\tRellena cont bytes de memoria con el valor hcode\n"},
-   {"memdump", Cmd_memdump, "addr cont\tMuestra cont bytes de memoria en caracteres y valores hexadecimales\n"},
+   {"allocate", Cmd_allocate, "[-malloc][-shared][-createshared][-mmap] tam\tReserva bloques de memoria"},
+   {"deallocate", Cmd_deallocate, "[-malloc][-shared][-mmap][-delkey][addr]\tLibera bloques de memoria"},
+   {"memfill", Cmd_memfill, "addr cont hcode\tRellena cont bytes de memoria con el valor hcode"},
+   {"memdump", Cmd_memdump, "addr cont\tMuestra cont bytes de memoria en caracteres y valores hexadecimales"},
+   {"i-o", Cmd_io, "[read|write] [-o] fiche addr cont\n"
+      "\tread fich addr cont: Lee cont bytes desde fich a addr\n"
+      "\twrite [-o] fich addr cont: Escribe cont bytes desde addr a fich. -o para sobreescribir"},
+   {"memory", Cmd_memory, "[-blocks|-funcs|-vars|-all|-pmap] ..\tMuestra muestra detalles de la memoria del proceso\n"
+      "\t-blocks: los bloques de memoria asignados\n"
+      "\t-funcs: las direcciones de las funciones\n"
+      "\t-vars: las direcciones de las variables\n"
+      "\t-all: todo\n"
+      "\t-pmap: muestra la salida del comando pmap(o similar)"},
+   {"read", Cmd_read, "df addr cont\tTransfiere cont bytes del fichero descrito por df a la direccion addr"},
+   {"write", Cmd_write,"df addr cont\tTransfiere cont bytes desde la direccion addr al fichero descrito por df"},
+   {"recurse", Cmd_recurse, "[n]\tInvoca a la funcion recursiva n veces"},
    {NULL,NULL},
   };
 

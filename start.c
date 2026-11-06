@@ -224,7 +224,7 @@ void Cmd_open (char * tr[])
 
 void Cmd_close (char *tr[]) //MODIFICAR EN PRACTICA 2 PARA AÑADIR -f
 { 
-    int df;
+    int df, idmem;
     
     if (tr[0]==NULL || (df=atoi(tr[0]))<0) { /*no hay parametro*/
         listarFicherosAbiertos(); /*o el descriptor es menor que 0*/
@@ -234,8 +234,11 @@ void Cmd_close (char *tr[]) //MODIFICAR EN PRACTICA 2 PARA AÑADIR -f
     
     if (close(df)==-1)
         perror("Imposible cerrar descriptor");
-    else
-       cerrarArchivo(df);
+    else {
+        idmem = getIdMemMapeado(df);
+        cerrarArchivo(df);
+        cerrarArchivoMapeado(idmem);
+    }
 }
 
 void Cmd_listopen(char *tr[])
@@ -864,7 +867,7 @@ void Cmd_allocate(char *arg[]) {
         do_AllocateCreateShared(arg+1);
     
     } else if (!(strcmp(arg[0], "-shared"))){
-        do_AllocateShared(arg+1)
+        do_AllocateShared(arg+1);
 
     } else if (!(strcmp(arg[0], "-mmap"))){
         do_AllocateMmap(arg+1);
@@ -917,7 +920,7 @@ void do_DeallocateMmap (char *arg[]) {
         return;
     }
     
-    nombre = arg[1];
+    nombre = arg[0];
     int id = buscarBloqueMmap(nombre);
 
     if (id == -1) {
@@ -1076,7 +1079,7 @@ void Cmd_memdump(char *arg[]) {
         }
         printf("\n");
 
-        if (cont=<20) {
+        if (cont<=20) {
             stop=1;
         } else {
             cont-=20;
@@ -1130,4 +1133,195 @@ void Cmd_write(char *arg[]) {
 
     printf("Escritos %zd bytes en el descriptor %d desde la direccion %p\n", bytesEscritos, df, p);
 
+}
+
+
+ssize_t LeerFichero (char *f, void *p, size_t cont)
+{
+    struct stat s;
+    ssize_t  n;  
+    int df,aux;
+
+    if (stat (f,&s)==-1 || (df=open(f,O_RDONLY))==-1)
+        return -1;     
+    if (cont==-1)   /* si pasamos -1 como bytes a leer lo leemos entero*/
+        cont=s.st_size;
+    if ((n=read(df,p,cont))==-1){
+        aux=errno;
+        close(df);
+        errno=aux;
+        return -1;
+    }
+    close (df);
+    return n;
+}
+
+void do_IOReadFile (char *ar[])
+{
+    void *p;
+    size_t cont=-1;  /*si no pasamos tamano se lee entero */
+    ssize_t n;
+    if (ar[0]==NULL || ar[1]==NULL){
+        printf ("faltan parametros\n");
+        return;
+    }
+    p=CadenatoPointer(ar[1]);  /*convertimos de cadena a puntero*/
+    if (ar[2]!=NULL)
+        cont=(size_t) atoll(ar[2]);
+
+    if ((n=LeerFichero(ar[0],p,cont))==-1)
+        perror ("Imposible leer fichero");
+    else
+        printf ("leidos %lld bytes de %s en %p\n",(long long) n,ar[0],p);
+}
+
+
+ssize_t EscribirFichero (char *f, void *p, size_t cont, int o)
+{
+    struct stat s;
+    ssize_t  n;  
+    int df,aux;
+
+
+    if (o && stat(f, &s)!=-1) //se puede sobreescribir y existe
+            df = open(f, O_WRONLY|O_TRUNC);
+    else //para cualquier otro caso se abre normal porque si intento crear uno que ya existe da error el open y salgo
+        df = open(f,O_CREAT|O_EXCL|O_WRONLY,0777);
+
+    if (df==-1) { //si ha dado error por intentar crear uno que existe o por si solo
+        return -1;
+    }
+
+
+    if ((n=write(df,p,cont))==-1){
+        aux=errno;
+        close(df);
+        errno=aux;
+        return -1;
+    }
+    close (df);
+    return n;
+}
+
+void do_IOWriteFile (char *ar[])
+{
+    void *p;
+    size_t cont=-1; 
+    ssize_t n;
+    char *f;
+    int o = 0; //1 si es overwrite 
+    if (ar[0]==NULL || ar[1]==NULL || ar[2]==NULL){
+        printf ("faltan parametros\n");
+        return;
+    }
+
+    //SI VIENE EL -o
+    if (!strcmp(ar[0], "-o")) {
+        o = 1;
+        if (ar[3]==NULL) {
+            printf("faltan parametros\n");
+            return;
+        }
+        f = ar[1];
+        p = CadenatoPointer(ar[2]);
+        cont = (size_t) atoll (ar[3]);
+    } else {
+        f = ar[0];
+        p=CadenatoPointer(ar[1]);  /*convertimos de cadena a puntero*/
+        if (ar[2]!=NULL)
+            cont=(size_t) atoll(ar[2]);
+    }
+
+    if ((n=EscribirFichero(f,p,cont, o))==-1)
+        perror ("Imposible escribir fichero");
+    else
+        printf ("escritos %lld bytes en %s desde %p\n",(long long) n,ar[0],p);
+}
+
+
+void Cmd_io (char *arg[]) {
+    if (arg[0]==NULL) {
+        printf("uso: i-o [read|write] ......\n");
+        return;
+    }
+    if (!strcmp(arg[0], "read")) {
+        do_IOReadFile(arg+1);
+    } else if (!strcmp(arg[0], "write")) {
+        do_IOWriteFile(arg+1);
+    } else
+        printf("uso: i-o [read|write] ......\n");
+}
+
+
+void do_pmap (void) /*sin argumentos*/
+ { pid_t pid;       /*hace el pmap (o equivalente) del proceso actual*/
+   char elpid[32];
+   char *argv[4]={"pmap",elpid,NULL};
+   
+   sprintf (elpid,"%d", (int) getpid());
+   if ((pid=fork())==-1){
+      perror ("Imposible crear proceso");
+      return;
+      }
+   if (pid==0){
+      if (execvp(argv[0],argv)==-1)
+         perror("cannot execute pmap (linux, solaris)");
+         
+      argv[0]="procstat"; argv[1]="vm"; argv[2]=elpid; argv[3]=NULL;   
+      if (execvp(argv[0],argv)==-1)/*No hay pmap, probamos procstat FreeBSD */
+         perror("cannot execute procstat (FreeBSD)");
+         
+      argv[0]="procmap",argv[1]=elpid;argv[2]=NULL;    
+            if (execvp(argv[0],argv)==-1)  /*probamos procmap OpenBSD*/
+         perror("cannot execute procmap (OpenBSD)");
+         
+      argv[0]="vmmap"; argv[1]="-interleave"; argv[2]=elpid;argv[3]=NULL;
+      if (execvp(argv[0],argv)==-1) /*probamos vmmap Mac-OS*/
+         perror("cannot execute vmmap (Mac-OS)");      
+      exit(1);
+  }
+  waitpid (pid,NULL,0);
+}
+
+void do_funcs() {
+    printf("Funciones programa\t%p,\t%p,\t%p\n", Cmd_list, Cmd_autores, Cmd_sysinfo);
+    printf("Funciones libreria\t%p,\t%p,\t%p\n", printf, perror, malloc);
+}
+
+//VARIABLES GLOBALES INICIALIZADAS
+int global1 = 5, global2= 10, global3 = 15;
+//VARIABLES GLOBALES SIN INICIALIZAR
+int global4, global5, global6;
+
+void do_vars() {
+    //Variables locales
+    int local1=6, local2=7, local3;
+    
+    //Variables estaticas inicializadas y no
+    static int static1=5, static2=10, static3=15;
+    static int static4, static5, static6;
+
+    printf("Variables locales\t%p,\t%p,\t%p\n", &local1, &local2, &local3);
+    printf("Variables globales\t%p,\t%p,\t%p\n", &global1, &global2, &global3);
+    printf("Variables globales (N. I.)\t%p,\t%p,\t%p\n", &global4, &global5, &global6);
+    printf("Variables estaticas\t%p,\t%p,\t%p\n", &static1, &static2, &static3);
+    printf("Variables estaticas (N. I.)\t%p,\t%p,\t%p\n", &static4, &static5, &static6);
+}
+
+void Cmd_memory(char *arg[]) {
+    if (arg[0]==NULL || !strcmp(arg[0], "-all")) {
+        do_funcs();
+        do_vars();
+        listarMemoria();
+    } else if (!strcmp(arg[0], "-blocks"))
+        listarMemoria();
+    else if (!strcmp(arg[0], "-funcs"))
+        do_funcs();
+    else if (!strcmp(arg[0], "-vars"))
+        do_vars();
+    else if(!strcmp(arg[0], "-pmap"))
+        do_pmap();
+    else {
+        printf("Opcion %s no contemplada\n", arg[0]);
+    }
 }

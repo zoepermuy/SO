@@ -61,6 +61,11 @@ void Cmd_allocate(char *arg[]);
 void Cmd_deallocate(char *arg[]);
 void Cmd_memfill(char *arg[]);
 void Cmd_memdump(char *arg[]);
+void Cmd_io(char *arg[]);
+void Cmd_memory(char *arg[]);
+void Cmd_read(char *arg[]);
+void Cmd_write(char *arg[]);
+void Cmd_recurse(char *arg[]);
 
 
 

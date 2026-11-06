@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+
 #define FILESLOTS 4096
 #define MAXNAME 512
 
@@ -23,6 +24,7 @@ typedef struct {
     int mode;
     //off_t offset;
     bool isInit; //para saber si está inicializado
+    int idMapped;
 } tFile;
 
 typedef tFile fList[FILESLOTS]; 
@@ -30,10 +32,12 @@ typedef tFile fList[FILESLOTS];
 /*FUNCIONES*/
 void inicializarListaF(void);
 void abrirArchivo(int df, int mode, char* name);
+void changeMapped(int df, int idMapped);
 void cerrarArchivo(int df);
 void duplicarArchivo(int dfOG, int dfDEST);
 //void posicionarOffset(int df, long nuevaPos);
 void listarFicherosAbiertos();
+int getIdMemMapeado(int df);
 
 
 #endif
